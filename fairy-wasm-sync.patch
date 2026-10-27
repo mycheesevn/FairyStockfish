@@ -1,0 +1,80 @@
+--- a/src/thread.cpp
++++ b/src/thread.cpp
+@@ -36,9 +36,19 @@
+ /// Thread constructor launches the thread and waits until it goes to sleep
+ /// in idle_loop(). Note that 'searching' and 'exit' should be already set.
+ 
+-Thread::Thread(size_t n) : idx(n), stdThread(&Thread::idle_loop, this) {
+-
++Thread::Thread(size_t n) : idx(n),
++#ifndef FAIRY_WASM_SYNC
++    stdThread(&Thread::idle_loop, this)
++#else
++    stdThread()
++#endif
++{
++
++#ifdef FAIRY_WASM_SYNC
++  searching = false; // No worker thread: start out idle, as idle_loop() would set
++#else
+   wait_for_search_finished();
++#endif
+ }
+ 
+ 
+@@ -50,8 +60,10 @@
+   assert(!searching);
+ 
+   exit = true;
++#ifndef FAIRY_WASM_SYNC
+   start_searching();
+   stdThread.join();
++#endif
+ }
+ 
+ 
+@@ -80,9 +92,22 @@
+ 
+ void Thread::start_searching() {
+ 
++#ifdef FAIRY_WASM_SYNC
++  // Synchronous search on the calling thread (no worker thread exists in a
++  // no-pthread WASM build). Mirrors idle_loop()'s bookkeeping: it would wake,
++  // run search(), then clear 'searching' and notify waiters when parking.
++  if (exit)
++      return;
++
++  searching = true;
++  search();
++  searching = false;
++  cv.notify_one(); // Wake up anyone waiting for search finished
++#else
+   std::lock_guard<std::mutex> lk(mutex);
+   searching = true;
+   cv.notify_one(); // Wake up the thread in idle_loop()
++#endif
+ }
+ 
+ 
+--- a/src/tt.cpp
++++ b/src/tt.cpp
+@@ -85,6 +85,11 @@
+ 
+ void TranspositionTable::clear() {
+ 
++#ifdef FAIRY_WASM_SYNC
++  // No std::thread in a no-pthread WASM build: zero the whole table inline
++  // (the threaded version only splits this same memset across workers).
++  std::memset(table, 0, clusterCount * sizeof(Cluster));
++#else
+   std::vector<std::thread> threads;
+ 
+   for (size_t idx = 0; idx < Options["Threads"]; ++idx)
+@@ -107,6 +112,7 @@
+ 
+   for (std::thread& th : threads)
+       th.join();
++#endif
+ }
+ 
+ 
