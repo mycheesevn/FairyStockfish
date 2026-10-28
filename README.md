@@ -9,6 +9,14 @@ Public License v3 (GPLv3). It mirrors the pattern used for the
 Stockfish mirror (CoVuaEngine) and the Pikafish mirror
 (CotuongEngine, for the engine code).
 
+## Play it live
+
+This engine powers the computer opponent in **Xiangqi (Cờ Tướng) at
+SynerWorlds** — play against it free in your browser, no downloads:
+
+- **Xiangqi:** https://cotuong.synerworlds.com
+- **All SynerWorlds games:** https://synerworlds.com
+
 ## What ships in the game
 
 - `fairy-wasm.js` (80,404 bytes) + `fairy-wasm.wasm` (857,781 bytes,
